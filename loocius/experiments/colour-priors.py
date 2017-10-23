@@ -39,7 +39,7 @@ test_name = 'color-priors'
 stim_path = pj(vis_stim_path, test_name)
 exp_window_size = (256 * 3, 256)
 mask_duration = 0.2
-intertrial_interval = 0.2
+intertrial_interval = 2
 modes = ('random', 'telephone')
 stimuli = (s for s in listdir(stim_path) if '.png' in s)
 durations = (0.1, 0.2, 0.3)
@@ -54,20 +54,20 @@ class ExpWidget(QWidget):
 
         super(ExpWidget, self).__init__(parent)
 
-        # control = self.parent().control
-        #
-        # if control:
-        #
-        #     self.control = control
-        #
-        # else:
-        #
-        #     self.control = rand_control_sequence(
-        #         stimulus=stimuli, mode=modes, duration=durations,
-        #         _t=range(trials_per_condition)
-        #     )
-        #
-        # self.results = self.parent().results
+        control = self.parent().control
+
+        if control:
+
+            self.control = control
+
+        else:
+
+            self.control = rand_control_sequence(
+                stimulus=stimuli, mode=modes, duration=durations,
+                _t=range(trials_per_condition)
+            )
+
+        self.results = self.parent().results
         self.setup()
         self.show()
 
@@ -88,11 +88,16 @@ class ExpWidget(QWidget):
         dial.setGeometry(256 + 64 + 6, 64 + 6, 128 - 13, 128 - 13)
         dial.valueChanged.connect(self.response)
 
-        # set up areas for left and right images
+        # set up left area
 
         self.left = QLabel(self)
+        self.show_mask('left')
+
         self.right = QLabel(self)
         self.right.move(512, 0)
+        self.show_mask('right')
+
+        self.show_sample('tree.png', .1, 0)
 
     def show_image(self, stimulus, position, hue):
 
@@ -106,29 +111,36 @@ class ExpWidget(QWidget):
             image = self.right
 
         pixmap = load_colourised_pixmap(pj(stim_path, stimulus), hue)
-        image.clear()
         image.setPixmap(pixmap)
-        image.update()
         image.show()
 
-    def show_mask(self):
+    def show_mask(self, position):
+
+        if position == 'left':
+
+            image = self.left
+
+        else:
+
+            image = self.right
 
         pixmap = colour_mask()
-        image = QLabel(self)
         image.setPixmap(pixmap)
-        image.update()
         image.show()
 
-    # def show_sample(self, stimulus, duration, hue):
-    #
-    #     timings = np.array([
-    #         intertrial_interval, mask_duration, duration, mask_duration
-    #     ]).cumsum() * 1000
-    #     events = [
-    #         self.show_mask, lambda: self.show_image(stimulus, 'left', hue),
-    #         self.show_mask
-    #     QTimer.singleShot(intertrial_interval * 1000, self.show_mask)
-    #     QTimer.singleShot(intertrial_interval * 1000, self.show_mask)
+    def show_sample(self, stimulus, duration, hue):
+
+        QTimer.singleShot(intertrial_interval * 1000,
+                          lambda: self.show_image(stimulus, 'left', hue))
+        QTimer.singleShot(intertrial_interval * 1000,
+                          lambda: self.show_image(stimulus, 'right', hue))
+        # timings = np.array([intertrial_interval, duration]).cumsum() * 1000
+        # events = [,
+        #           lambda: self.show_mask('left')]
+        #
+        # for t, e in zip(timings, events):
+        #
+        #     QTimer.singleShot(t, e)
 
 
 

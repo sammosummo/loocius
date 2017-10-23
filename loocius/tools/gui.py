@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QMainWindow, QDesktopWidget
+from PyQt5.QtWidgets import QMainWindow, QDesktopWidget, QWidget
 
 
 default_app_size = (768, 576)
@@ -38,3 +38,36 @@ class MainWindow(QMainWindow):
         else:
 
             self.close()
+
+
+class ExpWidget(QWidget):
+
+    def __init__(self, parent=None):
+
+        super(ExpWidget, self).__init__(parent)
+
+        control = self.parent().control
+
+        if control:
+
+            self.control = control
+
+        else:
+
+            self.control = self.gen_control()
+
+        self.results = self.parent().results
+        self.setup()
+        self.show()
+
+    def gen_control(self):
+
+        pass
+
+    def setup(self):
+
+        pass
+
+    def trial(self):
+
+        pass

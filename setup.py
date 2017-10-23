@@ -3,7 +3,7 @@ from setuptools import setup
 setup(
     name='loocius',
     version='0.1',
-    description='A skeleton for creating psychological tests in Python',
+    description='A skeleton for creating psychological experiments in Python',
     url='http://github.com/sammosummo/loocius',
     author='Sam Mathias',
     author_email='samuel.mathias@gmail.com',
