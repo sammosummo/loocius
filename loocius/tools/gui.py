@@ -1,33 +1,40 @@
 from PyQt5.QtWidgets import QMainWindow, QDesktopWidget
-from loocius.tools.defaults import icon_path, window_size
+
+
+default_app_size = (768, 576)
 
 
 class MainWindow(QMainWindow):
 
-    def __init__(self):
+    def __init__(self, data, exp_or_exps):
 
-        super().__init__()
-        self.resize(*window_size)
-        self.center()
-        self.init()
-        self.show()
+        super(MainWindow, self).__init__()
 
-    def init(self):
+        self.data = data
 
+        if isinstance(exp_or_exps, list):
 
-        self.setWindowTitle('Color Wheel')
+            self.exps = exp_or_exps
 
-        dial = QDial(self, wrapping=True, maximum=360)
-        vbox = QVBoxLayout()
-        vbox.addWidget(dial)
-        self.setStyleSheet("background-image: url(%s);" % icon_path)
-        self.setLayout(vbox)
+        else:
 
-        self.show()
+            self.exps = [exp_or_exps]
 
-    def center(self):
-
+        self.resize(*default_app_size)
         qr = self.frameGeometry()
         cp = QDesktopWidget().availableGeometry().center()
-        qr.moveCenter(cp)
+        self.frameGeometry().moveCenter(cp)
         self.move(qr.topLeft())
+        self.set_central_widget()
+        self.show()
+
+    def set_central_widget(self):
+
+        if self.exps:
+
+            self.exp = self.exps.pop(0)
+            self.setCentralWidget(self.exp)
+
+        else:
+
+            self.close()

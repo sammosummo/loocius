@@ -1,11 +1,19 @@
-"""Experiment for measuring priors on the colours of everyday objects. On each
-trial, the subject sees two monochrome images of the same real-world visual
-object. The images are identical apart from their colour. Using a dial, the
-subject adjusts the colour of one of the images so that it matches the other
-image (the referent). On the first trial, the referent has a random colour.
-On the next trial, the referent has the colour the subject chose on the first
-trial. This process is repeated for a number of trials until the prior has been
-effectively sampled.
+"""Pilot experiment which aims to measure subjects' 'priors' on the colours of
+real-world objects. On each trial in the experiment, the subject sees two
+images, which are identical apart from their colour, and a dial. The task is to
+use the dial to adjust the colour of the image on the right (the test image) so
+that it matches the colour of the image on the left (the sample image). There
+are no correct or incorrect responses to a given trial.
+
+The experiment estimates the subject's prior using a technique reminiscent of
+the children's game 'Chinese whispers' (or 'Telephone'). On the first trial,
+the colour of the sample image is chosen randomly from the colour wheel. On
+the second trial, the colour of the sample image is set to the colour of the
+test image that the subject chose on the first trial. On the next trial, the
+colour of the sample image is set to that of the test image on the previous
+trial, and so on. Using this technique, the colours of the sample images form
+a Markov chain, which can be shown to converge asymptotically on the prior
+distribution.
 
 Notes:
     Currently this version defines colours using the HSL model. Note that this
@@ -16,135 +24,176 @@ Requirements:
     colour-science: 0.3.9-py36_0: `conda install -c conda-forge colour-science`
 
 """
-import sys
 import numpy as np
-from colour.models.rgb.deprecated import RGB_to_HSV, HSV_to_RGB
-from itertools import product
-from loocius.tools.defaults import vis_stim_path
+from loocius.tools.paths import colourwheel_path, vis_stim_path
+from loocius.tools.control import rand_control_sequence
+from loocius.tools.visual import load_colourised_pixmap, colour_mask
+from os import listdir
 from os.path import join as pj
-from PIL import Image, ImageQt
-from PyQt5.QtGui import QImage, QPixmap
-from PyQt5.QtWidgets import (
-    QApplication, QDesktopWidget, QWidget, QLabel, QDial
-)
-from random import randint
+from PyQt5.QtCore import QTimer
+from PyQt5.QtGui import QPixmap
+from PyQt5.QtWidgets import *
 
 
 test_name = 'color-priors'
 stim_path = pj(vis_stim_path, test_name)
-stim_details = {
-    'banana': {'path': pj(stim_path, 'banana.png')},
-    'mailbox': {'path': pj(stim_path, 'mailbox.png')},
-    'tree': {'path': pj(stim_path, 'tree.png')},
-    'stopsign': {'path': pj(stim_path, 'stopsign.png')},
-    'cardinal': {'path': pj(stim_path, 'cardinal.png')},
-    'taxi': {'path': pj(stim_path, 'taxi.png')},
-    'orange': {'path': pj(stim_path, 'orange.png')},
-    'sky': {'path': pj(stim_path, 'sky.png')},
-}
-stims = stim_details.keys()
 exp_window_size = (256 * 3, 256)
-wheel_path = pj(vis_stim_path, 'wheel', 'wheel.png')
-modes = ('telephone', 'random')
-durations = (0.1, 0.2, 0.3)
-conditions = [c for c in product(stims, modes, durations)]
-mask_duration = 0.1
+mask_duration = 0.2
 intertrial_interval = 0.2
-saturation = 75
+modes = ('random', 'telephone')
+stimuli = (s for s in listdir(stim_path) if '.png' in s)
+durations = (0.1, 0.2, 0.3)
+trials_per_condition = 100
 
 
-def load_colourised_image(stim, hue, saturation):
-    """Returns a colourised image.
+# the experiment
 
-    Args:
-        stim (str): Name of the stimulus (e.g., `'banana'`).
-        hue (int): Colour of the image (0-359).
-        saturation (int): Saturation of the image (0-100).
-
-    Return:
-         QPixmap object
-
-    """
-    src = stim_details[stim]['path']
-    orig = Image.open(src)
-
-    # since PIL can't convert, we use colour-science
-
-    rgb = np.array(orig)[..., : -1] / 255.
-    a = orig.split()[-1]  # save this for later
-    hsv = RGB_to_HSV(rgb)
-
-    # modify hue and saturation then convert back to RGB
-
-    hue = hue / 360.
-    saturation = saturation / 100.
-    # hsv[..., [0, 1]] = (hue, saturation)
-    hsv[..., [0]] = hue
-    rgb = HSV_to_RGB(hsv)
-
-    # make new image
-
-    new = Image.fromarray((rgb * 255).astype('uint8'), 'RGB')
-    new.putalpha(a)  # reinstate transparency
-    # new.palette = None  # workaround for possible bug
-
-    # convert from PIL to Qt
-
-    return QPixmap.fromImage(QImage(ImageQt.ImageQt(new)))
-
-
-class ExpWindow(QWidget):
-    """Window containing the stimuli and response dial.
-
-    """
+class ExpWidget(QWidget):
 
     def __init__(self, parent=None):
 
-        super(ExpWindow, self).__init__(parent)
-        self.init()
+        super(ExpWidget, self).__init__(parent)
 
-    def init(self):
+        # control = self.parent().control
+        #
+        # if control:
+        #
+        #     self.control = control
+        #
+        # else:
+        #
+        #     self.control = rand_control_sequence(
+        #         stimulus=stimuli, mode=modes, duration=durations,
+        #         _t=range(trials_per_condition)
+        #     )
+        #
+        # self.results = self.parent().results
+        self.setup()
+        self.show()
+
+    def setup(self):
+
+        # set up window
 
         self.resize(*exp_window_size)
         self.setStyleSheet("background-color:lightGray;")
-        self.center()
 
-        hue = 200
-        sat = 80
+        # draw colour wheel and dial
 
-        left_pixmap = load_colourised_image('sky', hue, sat)
-        left_image_label = QLabel(self)
-        left_image_label.setPixmap(left_pixmap)
+        wheel = QLabel(self)
+        wheel.setPixmap(QPixmap(colourwheel_path))
+        wheel.move(256 + 64, 64)
+        dial = QDial(self, wrapping=True, minimum=-1, maximum=359)
+        dial.setStyleSheet("color:rgba(255, 0, 0, 50%);")
+        dial.setGeometry(256 + 64 + 6, 64 + 6, 128 - 13, 128 - 13)
+        dial.valueChanged.connect(self.response)
 
-        wheel = QPixmap(wheel_path)
-        wimg = QLabel(self)
-        wimg.setPixmap(wheel)
-        wimg.move(256, 0)
+        # set up areas for left and right images
 
-        rpixmap = QPixmap(stim_details['tree']['path'])
-        rimg = QLabel(self)
-        rimg.setPixmap(rpixmap)
-        rimg.move(256 * 2, 0)
+        self.left = QLabel(self)
+        self.right = QLabel(self)
+        self.right.move(512, 0)
 
-        dial = QDial(self, wrapping=True, maximum=360)
-        dial.move(332, 78)
+    def show_image(self, stimulus, position, hue):
 
-        self.show()
 
-    def center(self):
+        if position == 'left':
 
-        qr = self.frameGeometry()
-        cp = QDesktopWidget().availableGeometry().center()
-        qr.moveCenter(cp)
-        self.move(qr.topLeft())
+            image = self.left
+
+        else:
+
+            image = self.right
+
+        pixmap = load_colourised_pixmap(pj(stim_path, stimulus), hue)
+        image.clear()
+        image.setPixmap(pixmap)
+        image.update()
+        image.show()
+
+    def show_mask(self):
+
+        pixmap = colour_mask()
+        image = QLabel(self)
+        image.setPixmap(pixmap)
+        image.update()
+        image.show()
+
+    # def show_sample(self, stimulus, duration, hue):
+    #
+    #     timings = np.array([
+    #         intertrial_interval, mask_duration, duration, mask_duration
+    #     ]).cumsum() * 1000
+    #     events = [
+    #         self.show_mask, lambda: self.show_image(stimulus, 'left', hue),
+    #         self.show_mask
+    #     QTimer.singleShot(intertrial_interval * 1000, self.show_mask)
+    #     QTimer.singleShot(intertrial_interval * 1000, self.show_mask)
+
+
+
+    def response(self):
+
+        value = self.sender().value()
+        self.show_image('banana.png', 'right', value)
+
+
+    #
+    #     # dial.move(332, 78)
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #     # self.resize(*exp_window_size)
+    #     # self.setStyleSheet("background-color:lightGray;")
+    #     # self.center()
+    #     # self.trial(trial_details)
+    #     # self.show()
+    #
+    # def trial(self):
+    #
+    #
+    #
+    #     hue = 200
+    #     sat = 80
+    #
+    #     # left_pixmap = colour_mask()
+    #     # left_image_label = QLabel(self)
+    #     # left_image_label.setPixmap(left_pixmap)
+    #
+    #     wheel = QLabel(self)
+    #     wheel.setPixmap(QPixmap(colourwheel_path))
+    #     wheel.move(256, 64)
+    #     #
+    #     # rpixmap = QPixmap(stim_details['tree']['path'])
+    #     # rimg = QLabel(self)
+    #     # rimg.setPixmap(rpixmap)
+    #     # rimg.move(256 * 2, 0)
+    #
+    #     # dial = QDial(self, wrapping=True, maximum=360)
+    #     # dial.move(332, 78)
+    #
+    #
+    #
+    # def center(self):
+    #
+    #     qr = self.frameGeometry()
+    #     cp = QDesktopWidget().availableGeometry().center()
+    #     qr.moveCenter(cp)
+    #     self.move(qr.topLeft())
 
 
 def main():
     """Run the experiment.
 
     """
+    import sys
+
     app = QApplication(sys.argv)
-    ex = ExpWindow()
+    ex = ExpWidget()
     sys.exit(app.exec_())
 
 
