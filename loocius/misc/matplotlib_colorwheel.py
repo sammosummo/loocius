@@ -7,7 +7,7 @@ from loocius.tools.paths import colourwheel_path
 if __name__ == '__main__':
 
     dpi = 100
-    fig = plt.figure(figsize=(1.28,1.28), dpi=dpi)
+    fig = plt.figure(figsize=(2.56, 2.56), dpi=dpi)
 
     display_axes = fig.add_axes([0.1,0.1,0.8,0.8], projection='polar')
     display_axes._direction = 2*np.pi ## This is a nasty hack - using the hidden field to

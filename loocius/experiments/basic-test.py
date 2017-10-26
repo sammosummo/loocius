@@ -2,6 +2,7 @@
 functionality of loocius.
 
 """
+from PyQt5.QtWidgets import QLabel
 from loocius.tools.gui import ExpWidget
 
 
@@ -11,4 +12,8 @@ conditions = ('one', 'two', 'three')
 
 class BasicTest(ExpWidget):
 
+    def trial(self, trial_details):
+
+        s = 'This is condition %s!' % trial_details['condition']
+        label = QLabel
 

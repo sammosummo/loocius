@@ -42,10 +42,11 @@ from getpass import getuser
 from itertools import product
 from random import shuffle, randint
 from pkgutil import iter_modules
+from tqdm import tqdm
 from PIL import Image, ImageQt
-from PyQt5.QtCore import pyqtSignal, QTimer, QObject
-from PyQt5.QtGui import QImage, QPixmap
-from PyQt5.QtWidgets import QApplication, QDial, QLabel, QMainWindow, QStatusBar, QWidget
+from PyQt5.QtCore import pyqtSignal, QTime, QTimer, QObject
+from PyQt5.QtGui import QImage, QPixmap, QFont
+from PyQt5.QtWidgets import QApplication, QPushButton, QDial, QLabel, QMainWindow, QStatusBar, QWidget
 
 
 loocius_path = os.path.dirname(loocius.__file__)
@@ -243,10 +244,9 @@ class Data:
         self.timestamp = datetime.now()
         self.proj_id = proj_id
         self.user_id = getuser()
-        self.exp_started = False
         self.exp_done = False
         self.control = None
-        self.results = None
+        self.results = []
         self.relpath = '%s_%s.dic' % (self.subj_id, self.exp_name)
         self.abspath = os.path.join(data_path, self.relpath)
 
@@ -276,10 +276,8 @@ class Data:
             # load important details into the namespace of this instance
 
             self.exp_done = self.dic['exp_done']
-            self.exp_started = self.dic['exp_started']
             self.control = self.dic['control']
             self.results = self.dic['results']
-            self.timestamp = datetime.now()
 
     def save(self):
         """Save the data.
@@ -309,7 +307,7 @@ class MainWindow(QMainWindow):
         # TODO: programatically find names of available experiments
 
         self.available_exps = {
-            'color-priors': ColourPriors
+            'colour-priors': ColourPriors
         }
 
         # set up the main window
@@ -321,6 +319,7 @@ class MainWindow(QMainWindow):
         # self.setStatusBar(self.status_bar)
 
         # show on screen
+
 
         self.show()
 
@@ -348,31 +347,37 @@ class ExpWidget(QWidget):
 
         super(ExpWidget, self).__init__(parent)
 
-        # initialise data
+        # initialise data object inhereted from parent
 
         s_ = self.parent().subj_id
         e_ = self.parent().exp_name
         self.data_obj = Data(s_, e_)
 
-        # set defaults
+        # set default values
 
         self.vis_stim_path = os.path.join(vis_stim_path, e_)
         self.window_size = (768, 521)
         self.iti = 2
+        self.current_trial_details = None
+        self.exp_time = QTime()
+        self.trial_time = QTime()
 
-        # generate a control sequence if not found
+        # generate a control sequence if not found in data object
 
         if not self.data_obj.control and not self.data_obj.exp_done:
 
             self.data_obj.control = self.gen_control()
 
-        # run experiment-specific setup
+        # run experiment-specific setup method
 
         self.setup()
 
         # show on screen
 
+        self.setStyleSheet("background-color:lightGray;")
         self.setMinimumSize(*self.window_size)
+        self.exp_time.start()
+        self.trial_time.start()
         self.show()
 
     def resize_window(self, resize_main_window=True):
@@ -399,7 +404,7 @@ class ExpWidget(QWidget):
 
         pass
 
-    def trial(self):
+    def next_trial(self):
         """Override this method.
 
         """
@@ -421,101 +426,185 @@ class ColourPriors(ExpWidget):
         duration, and mode.
 
         """
-        modes = ('random', 'telephone')
-        stimuli = (s for s in os.listdir(self.vis_stim_path) if '.png' in s)
-        durs = (0.1, 0.2, 0.3)
+        modes = ['random', 'telephone'][1:]
+        stimuli = [s for s in os.listdir(self.vis_stim_path) if '.png' in s][1:2]
+        durs = [0.1, 0.2, 0.3][:1]
+        chains = range(1)
+        seq = rand_control_sequence(
+            100, mode=modes, stim=stimuli, dur=durs, chain=chains
+        )
 
-        return rand_control_sequence(100, mode=modes, stim=stimuli, dur=durs)
+        return seq
 
-    def response(self, src=None):
-        """Record the colour value of the dial and update the test image.
+    def dial_moved(self):
+        """Update the test image.
 
         """
         hue = self.sender().value()
-        test_image = colourise_hsv(src, hue)
-        self.right.setPixmap(test_image)
+        stim = self.current_trial_details['stim']
+        ix = (stim, hue)
+        if ix in self.pixmaps.keys():
 
-        return hue
+            pixmap = self.pixmaps[ix]
+
+        else:
+
+            src = os.path.join(self.vis_stim_path, stim)
+            pixmap = colourise_hsv(src, hue)
+            self.pixmaps[(stim, hue)] = pixmap
+
+        self.right.setPixmap(pixmap)
+        self.right.show()
 
     def setup(self):
 
-        # set up the widget area
-
-        self.window_size = (768, 256)
-        self.resize_window()
-        self.setStyleSheet("background-color:lightGray;")
+        self.pixmaps = {}
 
         # draw the colour wheel
 
         wheel = QLabel(self)
         cwp = os.path.join(vis_stim_path, 'wheel', 'wheel.png')
         wheel.setPixmap(QPixmap(cwp))
-        wheel.move(256 + 64, 64)
+        wheel.move(256, -16)
 
-        # draw the dial on top of the wheel and connect it its method
+        # draw the dial on top of the wheel
 
         self.dial = QDial(self, wrapping=True, minimum=-1, maximum=359)
-        self.dial.setStyleSheet("color:rgba(255, 0, 0, 50%);")
-        self.dial.setGeometry(256 + 64 + 6, 64 + 6, 128 - 13, 128 - 13)
+        self.dial.setGeometry(288, 16, 192, 192)
+        self.dial.valueChanged.connect(self.dial_moved)
 
         # draw the left image area, put a mask in it
 
         self.left = QLabel(self)
-        pixmap = square_mask(256, 32)
-        self.left.setPixmap(pixmap)
+        self.left.setPixmap(square_mask(256, 32))
         self.left.show()
 
         # draw the right image area, put a mask in it
 
         self.right = QLabel(self)
         self.right.move(512, 0)
-        pixmap = square_mask(256, 32)
-        self.right.setPixmap(pixmap)
+        self.right.setPixmap(square_mask(256, 32))
         self.right.show()
+
+        # draw the confirm button
+
+        self.button = QPushButton('Continue', self)
+        self.button.setFont(QFont('', 24))
+        self.button.resize(256, self.button.sizeHint().height())
+        self.button.move(384 - (self.button.size().width() / 2),
+                         256 - self.button.size().height())
+        self.button.clicked.connect(self.trial)
+
+        # now all elements are place, resize window
+
+        self.window_size = (768, 256)
+        self.resize_window()
 
         # begin trials
 
-    def trial(self, trial_details):
+        self.trial()
 
-        if trial_details['mode'] == 'random':
+    def trial(self):
+        """Initiate a new trial, saving the results of the previous trial (if
+        applicable).
 
+        """
+
+        if self.current_trial_details is not None:
+
+            # called after the first trial, so save results
+
+            rt = self.trial_time.elapsed()
+            rsp = self.dial.value()
+            hue = self.current_trial_details['hue']
+            err = (rsp - hue, rsp + 360 - hue)[
+                (abs(rsp - hue), abs(rsp + 360 - hue)).index(
+                    min(abs(rsp - hue), abs(rsp + 360 - hue)))]
+            accept = all([err < 40, 300 < rt < 5000])
+            self.current_trial_details['rt'] = rt
+            self.current_trial_details['rsp'] = rsp
+            self.current_trial_details['err'] = err
+            self.current_trial_details['accept'] = accept
+            self.data_obj.results.append(self.current_trial_details)
+
+            # if not acceptable trial, add back to control sequence
+
+            self.data_obj.control.append(self.current_trial_details)
+            shuffle(self.data_obj.control)
+
+        # begin next trial
+
+        self.current_trial_details = self.data_obj.control.pop(0)
+        stim = self.current_trial_details['stim']
+        dur = self.current_trial_details['dur']
+
+        if self.current_trial_details['mode'] == 'random':
+
+            # random hue
+        
             hue = randint(0, 360)
 
         else:
 
-            hue = [t for t in self.data_obj.results if
-                   t['stim'] == trial_details['stim']][0]['rsp']
+            # hue selected adaptively
 
-        # load visual stimuli
+            chain = self.current_trial_details['chain']
+            results = [
+                t for t in self.data_obj.results if t['mode'] == 'telephone' 
+                    and t['stim'] == stim and t['chain'] == chain
+            ]
+            
+            if len(results) > 0:
+                
+                hue = results[-1]['hue']
+            
+            else:
+                
+                # no previous trial in this chain
 
-        src = os.path.join(vis_stim_path, trial_details['stim'])
-        sample_image = colourise_hsv(self.src, hue)
-        left_mask = square_mask(256, 32)
+                hue = randint(0, 360)
+
+        self.current_trial_details['hue'] = hue
+        
+        # load sample image
+
+        src = os.path.join(self.vis_stim_path, stim)
+        ix = (stim, hue)
+
+        if ix in self.pixmaps.keys():
+
+            sample_pixmap = self.pixmaps[ix]
+
+        else:
+
+            sample_pixmap = colourise_hsv(src, hue)
+            self.pixmaps[(stim, hue)] = sample_pixmap
+
+        # load masks
+
+        left_mask_1 = square_mask(256, 32)
+        left_mask_2 = square_mask(256, 32)
         right_mask = square_mask(256, 32)
+
+        # reset the dial
 
         # reset the right side
 
         self.right.setPixmap(right_mask)
-        self.right.show()
 
-        # reset the left side, after flashing the sample image
+        # reset the left side
 
-        def reset_left():
+        self.left.setPixmap(left_mask_1)
 
-            self.left.setPixmap(left_mask)
-            self.left.show()
+        # show the sample image
 
-        def flash_sample_image():
+        def flash_sample():
 
-            self.left.show()
-            QTimer.singleShot(trial_details['dur'] * 1000, reset_left)
+            self.left.setPixmap(sample_pixmap)
+            QTimer.singleShot(dur * 1000,
+                              lambda: self.left.setPixmap(left_mask_2))
 
-        self.left.setPixmap(sample_image)
-        QTimer.singleShot(self.intertrial_interval * 1000, flash_sample_image)
-
-        # connect the dial
-
-        self.dial.valueChanged.connect(lambda: self.response(src=src))
+        QTimer.singleShot(self.iti * 1000, flash_sample)
 
 
 def main():
@@ -554,7 +643,7 @@ if __name__ == '__main__':
 # from PyQt5.QtWidgets import *
 #
 #
-# test_name = 'color-priors'
+# test_name = 'colour-priors'
 # stim_path = pj(vis_stim_path, test_name)
 # exp_window_size = (256 * 3, 256)
 # mask_duration = 0.2
