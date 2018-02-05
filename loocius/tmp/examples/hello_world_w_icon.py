@@ -1,8 +1,10 @@
-from os.path import join as pj
-from loocius.tools.defaults import vis_stim_path
 import sys
-from PyQt5.QtWidgets import QApplication, QWidget
+from os.path import join as pj
+
 from PyQt5.QtGui import QIcon
+from PyQt5.QtWidgets import QApplication, QWidget
+
+from loocius.tmp.tools import vis_stim_path
 
 
 class Example(QWidget):

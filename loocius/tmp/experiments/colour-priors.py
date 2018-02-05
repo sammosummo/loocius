@@ -1,32 +1,11 @@
-"""Color priors.
+"""Coherent-motion speed-accuracy tradeoff experiment (single-script version).
 
-Pilot experiment which aims to measure subjects' 'priors' on the colours of
-real-world objects. On each trial in the experiment, the subject sees two
-images, which are identical apart from their colour, and a dial. The task is to
-use the dial to adjust the colour of the image on the right (the test image) so
-that it matches the colour of the image on the left (the sample image). There
-are no correct or incorrect responses to a given trial.
-
-The experiment estimates the subject's prior using a technique reminiscent of
-the children's game 'Chinese whispers' (or 'Telephone'). On the first trial,
-the colour of the sample image is chosen randomly from the colour wheel. On
-the second trial, the colour of the sample image is set to the colour of the
-test image chosen by the subject on the first trial. Trials continue in this
-fashion until the prior is effectively sampled.
-
-Priors are estimated for several different stimuli, some of which should have
-strong unimodal priors (e.g., a banana) and some which shouldn't (e.g. a
-balloon). The experiment also contains an additional condition per stimulus in
-which the colour of the sample image is randomly selected and not updated
-according to the subject's responses.
-
-Notes:
-    Currently this version defines colours using the HSL model. Note that this
-    isn't the best choice because it is not perceptually relevant. This should
-    be changed in a later version.
-
-Requirements:
-    colour-science: 0.3.9-py36_0: `conda install -c conda-forge colour-science`
+On each trial, the participant sees a random dot kinematogram (RDK) and judges
+whether there is coherent motion to the left or right. The number of trials in
+a round is flexible, but the duration of a round is fixed at 120 s. Rounds
+differ in the proportion of coherent dots, gamma, and the ratio of reward to
+punishment, lambda. The idea is to determine whether participants can modify
+their behavior to maximize the reward.
 
 """
 import argparse

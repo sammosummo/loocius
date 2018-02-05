@@ -1,8 +1,74 @@
-from os.path import abspath, dirname, join as pj
+"""Paths to various subdirectories.
+
+"""
+import loocius
+from pkgutil import iter_modules
+from os import listdir
+from os.path import dirname, exists, join as pj
+from importlib import import_module
 
 
-pkg_path = abspath(dirname(dirname(__file__)))
-stim_path = pj(pkg_path, 'stimuli')
+loocius_path = dirname(loocius.__file__)
+data_path = pj(loocius_path, 'data')
+stim_path = pj(loocius_path, 'stimuli')
 vis_stim_path = pj(stim_path, 'visual')
-audio_stim_path = pj(stim_path, 'audio')
-colourwheel_path = pj(vis_stim_path, 'wheel', 'wheel.png')
+aud_stim_path = pj(stim_path, 'audio')
+exp_path = pj(loocius_path, 'experiments')
+exp_list = [name for _, name, _ in iter_modules([exp_path])]
+instructions_path = pj(loocius_path, 'instructions')
+icon_path = pj(vis_stim_path, 'icon', 'icon.png')
+
+
+def is_experiment(s):
+    """Returns True if `s` is an existing experiment.
+
+    """
+    return s in exp_list
+
+
+def find_experiments(s):
+    """Parses `s` and returns a list of experiments to run. Returns an error if
+    any of the entries are not valid experiments.
+
+    """
+
+    if exists(s) is True:
+
+        exp_names = [i.rstrip() for i in open(s).readlines()]
+
+    else:
+
+        exp_names = s.split()
+
+    assert all(is_experiment(s) for s in
+               exp_names), 'one or more invalid experiment names'
+
+    return exp_names
+
+
+def import_experiment(s):
+    """Import the Experiment class from an experiment.
+
+    """
+
+    assert is_experiment(s), 'not an experiment'
+
+    return import_module('loocius.experiments.' + s).Experiment
+
+
+def get_instructions(s, lang='EN'):
+    """Get instructions for an experiment.
+
+    """
+    instrs = listdir(pj(instructions_path, s, lang))
+    instrs = [f for f in instrs if '.html' in f]
+    instructions = {}
+
+    for instr in instrs:
+
+        k = instr.replace('.html', '')
+        f = pj(instructions_path, s, lang, instr)
+        instructions[k] = open(f)
+
+    return instructions
+

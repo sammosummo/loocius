@@ -1,30 +1,36 @@
+"""Generic control logic for experiments.
+
+"""
 from itertools import product
 from random import shuffle
 
 
-def rand_control_sequence(**kwargs):
-    """This hacky function generates a randomised control sequence for any
-    experiment. Supply an iterable containing all levels of a factor as a
-    kwarg named after the factor. Returns a list of dictionaries whose keys
-    are factors and values are levels. To use a factor but not include it
-    explicitly in the control sequence, make sure the first letter of the kwarg
-    name is `'_'`. For example, if you want 100 repetitions of each condition,
-    use rand_control_sequence(<other conditions>, _t=range(100).
+def control_sequence(reps, shuffled, **kwargs):
+    """Generate a control sequence.
 
+    A control sequence is a list of dictionaries where each dictionary contains
+    the details required to execute a new trial or block of trials.
+
+    Args:
+        reps (int): Number of repetitions per level of each condition.
+        shuffled (bool): Should blocks be shuffled?
+
+    Kwargs:
+        Takes any keyword arguments where the keyword is the name of the
+            factor and the argument is an iterable containing all levels of the
+            factor. (e.g., `condition=('one', 'two', 'three')`).
+
+    Returns:
+        list: Control sequence. Each item is a dictionary of trial details.
 
     """
     factors = kwargs.keys()
     levels = [[l for l in kwargs[f]] for f in factors]
-    control = [{f: l for f, l in zip(factors, trial) if f[0] != '_'} for trial
-               in product(*levels)]
-    shuffle(control)
+    control = [{f: l for f, l in zip(factors, t)} for t in product(*levels)]
+    control *= reps
+
+    if shuffled:
+
+        shuffle(control)
+
     return control
-
-
-if __name__ == '__main__':
-
-    modes = ('telephone', 'random')
-    durations = (0.1, 0.2, 0.3)
-    trials = range(100)
-    control = rand_control_sequence(mode=modes, duration=durations, _t=trials)
-    print(control)

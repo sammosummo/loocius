@@ -1,8 +1,9 @@
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib import cm
-import matplotlib as mpl
-from loocius.tools.paths import colourwheel_path
+
+from loocius.tmp.tools.paths import colourwheel_path
 
 if __name__ == '__main__':
 

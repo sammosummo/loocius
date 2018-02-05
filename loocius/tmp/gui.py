@@ -1,5 +1,6 @@
 from PyQt5.QtWidgets import QMainWindow, QDesktopWidget
-from loocius.tools.defaults import icon_path, window_size
+
+from loocius.tmp.tools import icon_path, window_size
 
 
 class MainWindow(QMainWindow):

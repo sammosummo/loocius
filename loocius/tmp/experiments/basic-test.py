@@ -3,8 +3,8 @@ functionality of loocius.
 
 """
 from PyQt5.QtWidgets import QLabel
-from loocius.tools.gui import ExpWidget
 
+from loocius.tmp.tools import ExpWidget
 
 test_name = 'basic-test'
 conditions = ('one', 'two', 'three')

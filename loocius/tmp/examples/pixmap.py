@@ -1,9 +1,11 @@
+import sys
+from os.path import join as pj
+
+from PyQt5.QtGui import QPixmap
 from PyQt5.QtWidgets import (QWidget, QHBoxLayout,
                              QLabel, QApplication)
-from PyQt5.QtGui import QPixmap
-import sys
-from loocius.tools.defaults import vis_stim_path
-from os.path import join as pj, exists
+
+from loocius.tmp.tools import vis_stim_path
 
 
 class Example(QWidget):
