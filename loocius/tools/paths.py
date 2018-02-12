@@ -54,21 +54,3 @@ def import_experiment(s):
     assert is_experiment(s), 'not an experiment'
 
     return import_module('loocius.experiments.' + s).Experiment
-
-
-def get_instructions(s, lang='EN'):
-    """Get instructions for an experiment.
-
-    """
-    instrs = listdir(pj(instructions_path, s, lang))
-    instrs = [f for f in instrs if '.html' in f]
-    instructions = {}
-
-    for instr in instrs:
-
-        k = instr.replace('.html', '')
-        f = pj(instructions_path, s, lang, instr)
-        instructions[k] = open(f)
-
-    return instructions
-

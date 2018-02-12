@@ -5,36 +5,38 @@ from os.path import join as pj
 from loocius.tools.data import Data
 from loocius.tools.paths import *
 from loocius.tools.argparser import get_parser
+from loocius.tools.instructions import read_instructions
 from PyQt5.QtCore import QTime
-from PyQt5.QtWidgets import QMainWindow, QWidget, QTextEdit, QMessageBox
+from PyQt5.QtWidgets import *
 
 
 class MainWindow(QMainWindow):
 
     def __init__(self):
         """This is the very top-level instance for running an experiment or
-        experiments in loocius.
+        experiments in loocius. Command-line arguments are read here.
 
         """
 
         super(MainWindow, self).__init__()
 
-        # parse the command-line arguments and set default values
+        # parse the command-line arguments
 
         self.args = get_parser().parse_args()
         self.subj_id = self.args.subj_id
-        self.exp_name = None
         self.exp_names = self.args.exp_names.split()
         self.lang = self.args.lang
         self.proj_id = self.args.proj_id
 
+        # set default values, to be overwritten by specific experiments
+
+        self.exp_name = None
         self.width = 768
         self.height = 512
 
         # set up the main window
 
         self.setFixedSize(self.width, self.height)
-        # self.setStyleSheet("background-color:lightGray;")
         self.set_central_widget()
 
         # show on screen
@@ -42,8 +44,13 @@ class MainWindow(QMainWindow):
         self.show()
 
     def set_central_widget(self):
+        """Sets the central widget (i.e., the experiment).
+
+        """
 
         if self.exp_names:
+
+            # take an experiment from the experiment list
 
             self.exp_name = self.exp_names.pop(0)
             widget = import_experiment(self.exp_name)
@@ -51,9 +58,14 @@ class MainWindow(QMainWindow):
 
         else:
 
+            # no more experiments
+
             self.close()
 
     def closeEvent(self, event):
+        """Overridden method to confirm closing loocius.
+
+        """
 
         reply = QMessageBox.question(
             self, 'Message', "Are you sure to quit?", QMessageBox.Yes |
@@ -73,19 +85,28 @@ class ExpWidget(QWidget):
     def __init__(self, parent=None):
         """Base class for experiment widgets.
 
+        This class does lots of heavy lifting, including:
+
+            1. Loading experiment- and language-specific instructions
+            2. Loading or creating a new Data object.
+            3. Numerous generic widgets are created (e.g., message display).
+            4. Numerous convenience methods are defined (e.g., clear message).
+
         """
+
+        # declare parent (always MainWindow)
 
         super(ExpWidget, self).__init__(parent)
 
-        # get some details from parent
+        # get some details from MainWindow
 
         s_ = self.parent().subj_id
         e_ = self.parent().exp_name
         l_ = self.parent().lang
 
-        # get instructions in html format
+        # get a dictionary of written instructions
 
-        self.instructions = get_instructions(e_, l_)
+        self.instructions_dic = read_instructions(e_, l_)
 
         # open a data object
 
@@ -111,13 +132,21 @@ class ExpWidget(QWidget):
 
             self.data_obj.control = self.gen_control()
 
+        # create an empty message screen
+
+        self.message_area = QTextEdit(self)
+
+        # create a generic continue button in the selected language
+
+        m = self.instructions_dic['__continue__']
+        self.cont_button = QPushButton(m, self)
+
         # run experiment-specific setup method
 
         self.setup()
 
         # show on screen
 
-        self.setStyleSheet("background-color:lightGray;")
         self.setMinimumSize(*self.window_size)
         self.exp_time.start()
         self.show()
@@ -137,39 +166,61 @@ class ExpWidget(QWidget):
 
         """
 
-        pass
+        raise Exception('Control method not overridden.')
 
     def setup(self):
         """Override this method.
 
         """
 
-        pass
+        raise Exception('Setup method not overridden.')
 
-    def next_trial(self):
+    def trial(self):
         """Override this method.
 
         """
 
-        pass
+        raise Exception('Trial method not overridden.')
 
     def save(self):
 
         self.data_obj.save()
 
-    def display_message(self, content):
-        """Displays a rich-text (HTML-formatted) message `content` in the
-        widget with a continue button.
+    def display_message(self, content, func, button_message=None):
+        """Displays a rich-text (HTML-formatted) message.
+
+        Args:
+            content (str): Message to display. Supports HTML text formatting.
+            func (function): Method from `Experiment` to connect to the button,
+                e.g., `self.trial`.
+            button_message (Optional[str]): Message to display inside the
+                button. Defaults to "Continue" in the selected language.
 
         """
 
-        s = self.instructions[content].read()
-        print(type(s), s)
-        message_area = QTextEdit(self)
-        message_area.setStyleSheet('font-size: 18pt')
-        message_area.insertHtml(s)
-        message_area.resize(self.w, self.h)
-        message_area.setReadOnly(True)
+        if button_message:
+
+            self.cont_button.setText(button_message)
+
+        self.message_area.clear()
+        self.message_area.insertHtml(content)
+        self.message_area.setReadOnly(True)
+        self.message_area.resize(self.w, self.h)
+
+        self.cont_button.resize(self.cont_button.sizeHint())
+        x = self.w // 2 - self.cont_button.size().width() // 2
+        y = self.h - self.cont_button.size().height()
+        self.cont_button.move(x, y)
+        self.cont_button.clicked.connect(func)
+        self.cont_button.setFocus()
+
+    def hide_message(self):
+        """Hide the message and continue-button widgets.
+
+        """
+        self.message_area.hide()
+        self.cont_button.hide()
+
 
 
 

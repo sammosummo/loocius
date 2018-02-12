@@ -5,10 +5,10 @@ from itertools import product
 from random import shuffle
 
 
-def control_sequence(reps, shuffled, **kwargs):
-    """Generate a control sequence.
+def make_control_list(reps, shuffled, **kwargs):
+    """Generate a control list.
 
-    A control sequence is a list of dictionaries where each dictionary contains
+    A control list is a list of dictionaries where each dictionary contains
     the details required to execute a new trial or block of trials.
 
     Args:
@@ -21,7 +21,7 @@ def control_sequence(reps, shuffled, **kwargs):
             factor. (e.g., `condition=('one', 'two', 'three')`).
 
     Returns:
-        list: Control sequence. Each item is a dictionary of trial details.
+        list: Control list. Each item is a dictionary of trial details.
 
     """
     factors = kwargs.keys()
